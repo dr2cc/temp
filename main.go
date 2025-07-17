@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -23,6 +24,16 @@ var site string = ""
 // функция обрабатывающая POST запросы к конечной точке "/"
 func Transmission() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Играюсь
+		// И такой ридер (то, что можно читать) делаю
+		// Два запроса для google:
+		//  что такое reader в go
+		//  body в go имеет тип readcloser
+		nr := strings.NewReader("Hello World!")
+		br, _ := io.ReadAll(nr)
+		fmt.Println(string(br))
+		// Конец игры
+
 		// читаю r
 		tt, _ := io.ReadAll(r.Body)
 		site = string(tt)
