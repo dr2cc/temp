@@ -2,10 +2,14 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 )
+
+// Простейший пример, хватит и переменной
+var site string = ""
 
 // type HandlerFunc func(ResponseWriter, *Request)
 //
@@ -19,14 +23,20 @@ import (
 // функция обрабатывающая POST запросы к конечной точке "/"
 func Transmission() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "Pip")
+		// читаю r
+		tt, _ := io.ReadAll(r.Body)
+		site = string(tt)
+		fmt.Fprint(w, site)
 	}
 }
 
 // функция обрабатывающая GET запросы к конечной точке "/"
 func Receiving() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "Pip in browser")
+		// Так пишу ответ в заголовок- происходит редирект
+		// Вот это пока (17.07.2025) не знаю до конца
+		w.Header().Set("Location", site)
+		//w.WriteHeader(http.StatusTemporaryRedirect)
 	}
 }
 
