@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"strings"
 
@@ -24,18 +26,43 @@ var site string = ""
 // функция обрабатывающая POST запросы к конечной точке "/"
 func Transmission() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Играюсь
-		// И такой ридер (то, что можно читать) делаю
-		// Два запроса для google:
+
+		// Запросы для поисковика google:
 		//  что такое reader в go
-		//  body в go имеет тип readcloser
-		nr := strings.NewReader("Hello World!")
-		br, _ := io.ReadAll(nr)
-		fmt.Println(string(br))
+		//  http что такое закрытие потока
+		//
+		// Играюсь.
+		// И такой ридер (то, что можно читать) делаю:
+		stringsReader := strings.NewReader("Hello World!")
+
+		//summary
+		// Тип Reader можно сделать во многих пакетах (к примеру strings.NewReader и bytes.NewReader)
+		//DOGMA// В строку его можно преобразовать только из байтового среза (пока приму как догму)
+		bytes01, _ := io.ReadAll(stringsReader)
+		fmt.Println(string(bytes01))
+		bytes02, _ := io.ReadAll(bytes.NewReader(bytes01))
+		fmt.Println(string(bytes02))
+
 		// Конец игры
 
-		// читаю r
+		// читаю r (http запрос)
+		//
+		// Почему тело http запроса имеет тип ReadCloser?
+		//
+		// ГЛАВНОЕ - так сделан поток данных в http.
+		// А сделан он так вот почему:
+		//
+		// В контексте HTTP, закрытие потока (stream) относится к процессу
+		// прекращения передачи данных между клиентом и сервером, обычно в рамках одного TCP-соединения.
+		// Это может происходить по инициативе как клиента, так и сервера, и может быть полным или частичным.
+		// Закрытие потоков является важной частью управления соединениями и ресурсами в HTTP.
+		// Это позволяет:
+		// - избежать утечек ресурсов, предотвратить нежелательное поведение,
+		// - и обеспечить более эффективную работу приложений,
+		// - в некоторых случаях закрытие потока необходимо для завершения работы приложения.
 		tt, _ := io.ReadAll(r.Body)
+		body, err := ioutil.ReadAll(r.Body)
+		fmt.Println(body)
 		site = string(tt)
 		fmt.Fprint(w, site)
 	}
