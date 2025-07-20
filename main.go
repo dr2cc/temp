@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 
@@ -38,6 +37,7 @@ func Transmission() http.HandlerFunc {
 		//summary
 		// Тип Reader можно сделать во многих пакетах (к примеру strings.NewReader и bytes.NewReader)
 		//DOGMA// В строку его можно преобразовать только из байтового среза (пока приму как догму)
+		// поэтому в начале преобразуем его в []byte
 		bytes01, _ := io.ReadAll(stringsReader)
 		fmt.Println(string(bytes01))
 		bytes02, _ := io.ReadAll(bytes.NewReader(bytes01))
@@ -60,10 +60,9 @@ func Transmission() http.HandlerFunc {
 		// - избежать утечек ресурсов, предотвратить нежелательное поведение,
 		// - и обеспечить более эффективную работу приложений,
 		// - в некоторых случаях закрытие потока необходимо для завершения работы приложения.
-		tt, _ := io.ReadAll(r.Body)
-		body, err := ioutil.ReadAll(r.Body)
-		fmt.Println(body)
-		site = string(tt)
+		bodyToBytes, _ := io.ReadAll(r.Body)
+
+		site = string(bodyToBytes)
 		fmt.Fprint(w, site)
 	}
 }
