@@ -2,6 +2,7 @@ package main
 
 import (
 	"compress/gzip"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -40,8 +41,15 @@ func gzipHandle(next http.Handler) http.Handler {
 		// это упрощённый пример. В реальном приложении следует проверять все
 		// значения r.Header.Values("Accept-Encoding") и разбирать строку
 		// на составные части, чтобы избежать неожиданных результатов
+
+		// // Теперь ответ. Проверяем, что клиент поддерживает gzip
+		fmt.Println("ACCEPT-Encoding=", r.Header.Get("Accept-Encoding"))
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-			// если gzip не поддерживается, передаём управление
+			// Postman не попадает. У него стоит gzip в "ACCEPT-Encoding"
+			// "Верный curl" сюда попадает! Все верно- он не посылает gzip в "ACCEPT-Encoding"
+			fmt.Println("Клиент не поддерживает gzip!")
+
+			// gzip не поддерживается, передаём управление
 			// дальше без изменений
 			next.ServeHTTP(w, r)
 			return
