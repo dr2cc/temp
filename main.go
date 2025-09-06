@@ -10,6 +10,10 @@
 //
 // func (f http.HandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
+// Строка запуска pg в docker
+//
+//docker run -e POSTGRES_PASSWORD=qwerty -p 5432:5432 -v sprint3:/var/lib/postgresql/data -d postgres
+
 package main
 
 import (
