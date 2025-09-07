@@ -65,19 +65,15 @@ func Receiving() http.HandlerFunc {
 }
 
 // ВСПОМНИТЬ! Про HandlerFunc и (w http.ResponseWriter, r *http.Request)
-// 05.09.2025 Сейчас этот хендлер производит подключение к pg и поиск значения
-// из sandbox
-//
-// ping for pg
-func pg() http.HandlerFunc {
+func HealthCheckHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// // 1. подключение
+		// 1. подключение
 
-		// //DriverName
+		//DriverName
 		dn := "postgres"
 		//dn := "sqlite3"
 
-		// // DataSourceName
+		// DataSourceName
 		dsn := "postgres://postgres:qwerty@localhost:5432/postgres?sslmode=disable"
 		//dsn := "sqlite.db"
 
@@ -85,40 +81,52 @@ func pg() http.HandlerFunc {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(dn)
-		defer db.Close()
 
-		//...
-
+		// делаем запрос
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		// не забываем освободить ресурс
 		defer cancel()
 
-		// // делаем запрос
-		// // QueryRowContext выполняет запрос, который, как ожидается, вернет не более одной строки (в нашем случае запрос:
-		// // ВЫБРАТЬ Количество(все) как count ИЗ videos
-		// // должен вернуть только одну строку- количество
-		// row := db.QueryRowContext(ctx,
-		// 	"SELECT COUNT(*) as count FROM videos")
-
-		// 2. получение данных из таблицы videos (any db - pg or sqlite)
-		row := db.QueryRowContext(ctx,
-			"SELECT title, views, channel_title "+
-				"FROM videos ORDER BY views DESC LIMIT 1")
-		var (
-			title string
-			views int
-			chati string
-		)
-
-		// 3. Scan() "переводит" полученные данные в GO-типы
-		// порядок переменных должен соответствовать порядку колонок в запросе
-		err = row.Scan(&title, &views, &chati)
+		// В принципе только для целей проверки наличия соединения достаточно db.Ping
+		// но он тоже получает контест, только не явно.
+		// Яндекс советует всюду использовать context
+		// И уже все готово для работы с данными!
+		err = db.PingContext(ctx)
 		if err != nil {
-			panic(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			//fmt.Fprint(w, "Error connecting to the database:", err)
+			return
 		}
-		//fmt.Println(getDesc(ctx, db, "0EbFotkXOiA"))
-		fmt.Printf("%s | %d | %s \r\n", title, views, chati)
+		//w.WriteHeader(http.StatusOK)
+		//fmt.Fprint(w, dn, " - successfully connected to the database!")
+		defer db.Close()
+
+		//...
+
+		// // // QueryRowContext выполняет запрос, который, как ожидается, вернет не более одной строки (в нашем случае запрос:
+		// // // ВЫБРАТЬ Количество(все) как count ИЗ videos
+		// // // должен вернуть только одну строку- количество
+		// // row := db.QueryRowContext(ctx,
+		// // 	"SELECT COUNT(*) as count FROM videos")
+
+		// // 2. получение данных из таблицы videos (any db - pg or sqlite)
+		// row := db.QueryRowContext(ctx,
+		// 	"SELECT title, views, channel_title "+
+		// 		"FROM videos ORDER BY views DESC LIMIT 1")
+		// var (
+		// 	title string
+		// 	views int
+		// 	chati string
+		// )
+
+		// // 3. Scan() "переводит" полученные данные в GO-типы
+		// // порядок переменных должен соответствовать порядку колонок в запросе
+		// err = row.Scan(&title, &views, &chati)
+		// if err != nil {
+		// 	panic(err)
+		// }
+		// //fmt.Println(getDesc(ctx, db, "0EbFotkXOiA"))
+		// fmt.Printf("%s | %d | %s \r\n", title, views, chati)
 	}
 }
 
@@ -136,7 +144,7 @@ func main() {
 	// iter10
 	// хендлер GET "/ping", который при запросе проверяет соединение с базой данных.
 	// При успешной проверке хендлер должен вернуть HTTP-статус 200 OK, при неуспешной — 500 Internal Server Error.
-	router.Get("/ping", pg())
+	router.Get("/ping", HealthCheckHandler())
 
 	// 3. сервер (служба слушающая порт и "подающая" ответы на порт- ListenAndServe)
 	// параметры:
