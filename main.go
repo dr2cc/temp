@@ -144,14 +144,17 @@ type Video struct {
 	Views       int       // views
 }
 
-func readVideoCSV(csvFile string) ([]Video, error) {
+func readVideoCSV(ctx context.Context, db *sql.DB, csvFile string) error {
 	// открываем csv файл
 	file, err := os.Open(csvFile)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer file.Close()
-	var videos []Video
+	//var videos []Video
+
+	// со множественной вставкой
+	videos := make([]Video, 0, 1000)
 
 	// определим индексы нужных полей
 	const (
@@ -167,7 +170,7 @@ func readVideoCSV(csvFile string) ([]Video, error) {
 	r := csv.NewReader(file)
 	// пропустим первую строку с именами полей
 	if _, err := r.Read(); err != nil {
-		return nil, err
+		return err
 	}
 
 	for {
@@ -177,7 +180,7 @@ func readVideoCSV(csvFile string) ([]Video, error) {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
 		// инициализируем целевую структуру,
 		// в которую будем делать разбор csv-записи
@@ -187,7 +190,7 @@ func readVideoCSV(csvFile string) ([]Video, error) {
 		}
 		// парсинг строковых записей в типизированные поля структуры
 		if v.PublishTime, err = time.Parse(time.RFC3339, l[PublishTime]); err != nil {
-			return nil, err
+			return err
 		}
 		tags := strings.Split(l[Tags], "|")
 		for i, v := range tags {
@@ -195,32 +198,71 @@ func readVideoCSV(csvFile string) ([]Video, error) {
 		}
 		v.Tags = tags
 		if v.Views, err = strconv.Atoi(l[Views]); err != nil {
-			return nil, err
+			return err
 		}
 		// добавляем полученную структуру в слайс
 		videos = append(videos, v)
+
+		// со множественной вставкой
+		if len(videos) == 1000 {
+			if err = insertVideos(ctx, db, videos); err != nil {
+				return err
+			}
+			videos = videos[:0]
+		}
 	}
-	return videos, nil
+
+	// добавляем оставшиеся записи
+	return insertVideos(ctx, db, videos)
 }
 
 func insertVideos(ctx context.Context, db *sql.DB, videos []Video) error {
+	// начинаем транзакцию
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	// можно вызвать Rollback (откат изменений) в defer,
+	// если Commit (сохранение изменеий) будет раньше,
+	// то Rollback проигнорируется
+	defer tx.Rollback()
+
+	// В postgresql  плейсхолдеры (или «заполнители») это $1,$2, ...
+	// В sqlite это ?,?, ...
+
+	// PrepareContext - создание (не выполнение!) sql query
+	stmt, err := db.PrepareContext(ctx,
+		"INSERT INTO videos (video_id, title, publish_time, tags, views)"+
+			" VALUES($1,$2,$3,$4,$5)")
+
+	// // db.ExecContext - выполнение запроса (sql query)
+	// _, err := db.ExecContext(ctx,
+	// 	"INSERT INTO videos (video_id, title, publish_time, tags, views)"+
+	// 		" VALUES($1,$2,$3,$4,$5)", v.Id, v.Title, v.PublishTime,
+	// 	strings.Join(v.Tags, `|`), v.Views)
+
+	// // Добавить в конец запроса- проверка на дубликаты
+	// "ON CONFLICT (video_id) DO UPDATE SET"+
+	// "title = EXCLUDED.title,"+
+	// "views = EXCLUDED.views"
+
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	// а вот теперь выполнение подготовленного sql query
 	for _, v := range videos {
-		// В postgresql  плейсхолдеры (или «заполнители») это $1,$2, ...
-		// В sqlite это ?,?, ...
-		_, err := db.ExecContext(ctx,
-			"INSERT INTO videos (video_id, title, publish_time, tags, views)"+
-				" VALUES($1,$2,$3,$4,$5)", v.Id, v.Title, v.PublishTime,
+		_, err := stmt.ExecContext(ctx, v.Id, v.Title, v.PublishTime,
 			strings.Join(v.Tags, `|`), v.Views)
-		// // Добавить в конец запроса- проверка на дубликаты
-		// "ON CONFLICT (video_id) DO UPDATE SET"+
-		// "title = EXCLUDED.title,"+
-		// "views = EXCLUDED.views"
 
 		if err != nil {
 			return err
 		}
 	}
-	return nil
+	// завершаем транзакцию
+	return tx.Commit()
 }
 
 func DbFunc() {
@@ -245,19 +287,23 @@ func DbFunc() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// читаем записи из файла в слайс []Video вспомогательной функцией
-	videos, err := readVideoCSV(".\\USvideos.csv")
+	// // читаем записи из файла в слайс []Video вспомогательной функцией
+	//videos, err := readVideoCSV(".\\USvideos.csv")
+
+	// со множественной вставкой
+	err = readVideoCSV(ctx, db, ".\\USvideos.csv")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// записываем []Video в базу данных
-	err = insertVideos(ctx, db, videos)
-	if err != nil {
-		log.Fatal(err)
-	}
+	// // теперь "переехала" в readVideoCSV
+	// // записываем []Video в базу данных
+	// err = insertVideos(ctx, db, videos)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	fmt.Printf("Всего csv-записей %v\n", len(videos))
+	//fmt.Printf("Всего csv-записей %v\n", len(videos))
 }
 
 func main() {
