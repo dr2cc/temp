@@ -27,12 +27,14 @@ func main() {
 	// // упрощая использование простых функций в качестве обработчиков.
 	// http.HandleFunc("/", greet)
 
-	// Это не правильно, оставлю для понимания
+	// Это образец HandleFunc в случае использования DefaultServeMux (не использует шаблон CRUD)
+	// Будет работать только при http.ListenAndServe("localhost:8080", nil)
+	// Оставил для понимания
 	http.HandleFunc("/two", twet)
 
 	// // The handler is typically nil, in which case [DefaultServeMux] is used.
 	// // Обработчик (второй параметр) по умолчанию равен nil, в этом случае используется [DefaultServeMux].
-	// // Его использование рекомендуется, только в простых, тестовых приложениях.
+	// // Его использование не рекомендуется, только в простых, тестовых приложениях.
 	// // В рабочих приложениях следует использовать http.NewServeMux или сторонние роутеры
 	// http.ListenAndServe("localhost:8080", nil)
 	http.ListenAndServe("localhost:8080", mux)
