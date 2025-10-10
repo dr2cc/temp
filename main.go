@@ -1,6 +1,7 @@
 package main
 
 // helloweb - Snippet for sample hello world webapp (Go)
+// wr		- Snippet for http Response (Go)
 
 import (
 	"fmt"
@@ -11,12 +12,18 @@ import (
 )
 
 // Тип реализующий два экземпляра логгера
+// а с методом ServeHTTP он (тип) еще и считается http.Handler
 type app struct {
 	infoLogger  *log.Logger
 	errorLogger *log.Logger
 }
 
-// На 10.10.25 Теперь сделаю метод для app соотвктствующий Handler
+func (a *app) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	a.infoLogger.Println("I use Handler!")
+	fmt.Fprintln(w, "I use Handler!")
+}
+
+// На 10.10.25 Теперь сделаю метод для app соответствующий Handler
 // И затем сам Handler....
 
 // Это и есть "простая" функция в качестве обработчика
@@ -42,9 +49,10 @@ func main() {
 	// который позволяет простой функции выполнять "контракт"
 	// http.Handler на обработку HTTP-запросов (чтобы это не значило),
 	// упрощая использование простых функций в качестве обработчиков.
-	mux.HandleFunc("POST /", greet)
+	mux.HandleFunc("POST /HandleFunc", greet)
 
-	//mux.Handle("POST /")
+	// ❗ В таком виде работает! Что еэто дает пока не понял, спешу
+	mux.Handle("POST /Handle", &example)
 
 	// // Это образец HandleFunc в случае использования DefaultServeMux (не использует шаблон CRUD)
 	// // Будет работать только с http.ListenAndServe("localhost:8080", nil)
