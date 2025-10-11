@@ -9,9 +9,11 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/go-chi/chi"
 )
 
-// Тип реализующий два экземпляра логгера
+// Тип реализующий два экземпляра логгера,
 // а с методом ServeHTTP он (тип) еще и считается http.Handler
 type app struct {
 	infoLogger  *log.Logger
@@ -23,47 +25,61 @@ func (a *app) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "I use Handler!")
 }
 
-// На 10.10.25 Теперь сделаю метод для app соответствующий Handler
-// И затем сам Handler....
-
-// Это и есть "простая" функция в качестве обработчика
+// Это и есть "простая" функция (the plain function) в качестве обработчика
 func greet(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello World! %s", time.Now())
 }
 
-func newLogger() *log.Logger {
+func newLogger(prefix string) *log.Logger {
 	// скопировал у Тузова, не понимаю, что где значит
 	// Вроде как os.Stdout это выходной поток (даже толком не знаю, что это)
-	return log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime)
 	//return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
+	return log.New(os.Stdout, prefix, log.Ldate|log.Ltime)
 }
 
 func main() {
-	mux := http.NewServeMux()
+	// DefaultServeMux не требует создания экземпляра роутера, только объявление его как nil (http.ListenAndServe("localhost:8080", nil))
+	// mux := http.NewServeMux()
+	chi := chi.NewRouter()
 
 	example := app{
-		infoLogger: newLogger(),
+		infoLogger:  newLogger("INFO: "),
+		errorLogger: newLogger("ERROR: "),
 	}
 
-	// http.HandlerFunc— это удобный адаптер,
-	// который позволяет простой функции выполнять "контракт"
+	// http.HandlerFunc— это ТИП,
+	// удобный адаптер, который позволяет простой функции выполнять "контракт"
 	// http.Handler на обработку HTTP-запросов (чтобы это не значило),
 	// упрощая использование простых функций в качестве обработчиков.
-	mux.HandleFunc("POST /HandleFunc", greet)
+	//
+	// We wrap the plain function `greet` in http.HandlerFunc to make it a Handler
+	// Мы оборачиваем простую функцию `greet` в http.HandlerFunc, чтобы сделать ее обработчиком
+	gr := http.HandlerFunc(greet)
 
-	// ❗ В таком виде работает! Что еэто дает пока не понял, спешу
-	mux.Handle("POST /Handle", &example)
+	// http.Handle("POST /httpHandleFunc", gr)
+	chi.Handle("/httpHandleFunc", gr)
 
-	// // Это образец HandleFunc в случае использования DefaultServeMux (не использует шаблон CRUD)
-	// // Будет работать только с http.ListenAndServe("localhost:8080", nil)
-	// http.HandleFunc("/", greet)//❗
+	// // HandleFunc это функция которая регистрирует handler для заданного шаблона маршрута
+	// http.HandleFunc("/", greet)// образец HandleFunc в случае использования DefaultServeMux
+	// mux.HandleFunc("POST /HandleFunc", greet)
+	chi.HandleFunc("/HandleFunc", greet)
+
+	// // ❗ В таком виде работает! Что это дает пока не понял..
+	// mux.Handle("POST /Handle", &example)
+	chi.Handle("/Handle", &example)
+
+	example.infoLogger.Println("The server is starting")
+
 	// // The handler is typically nil, in which case [DefaultServeMux] is used.
 	// // Обработчик (второй параметр) по умолчанию равен nil, в этом случае используется [DefaultServeMux].
-	// //
-	// // Его использование не рекомендуется, только в простых, тестовых приложениях.
-	// // В рабочих приложениях следует использовать http.NewServeMux или сторонние роутеры
-	// http.ListenAndServe("localhost:8080", nil)//❗
+	// // Его использование не рекомендуется (можно только в простых, тестовых приложениях).
 	//
-	example.infoLogger.Println("The server is starting")
-	http.ListenAndServe("localhost:8080", mux)
+	// // В рабочих приложениях следует использовать http.NewServeMux или сторонние роутеры
+	// http.ListenAndServe("localhost:8080", nil)
+
+	// Запуск сервера с обработкой ошибки
+	if err := http.ListenAndServe("localhost:8080", chi); err != nil {
+		example.errorLogger.Fatal(err)
+	}
 }
