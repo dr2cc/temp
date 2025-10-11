@@ -39,10 +39,12 @@ func newLogger(prefix string) *log.Logger {
 }
 
 func main() {
+
 	// DefaultServeMux не требует создания экземпляра роутера, только объявление его как nil (http.ListenAndServe("localhost:8080", nil))
 	// mux := http.NewServeMux()
 	chi := chi.NewRouter()
 
+	// main app
 	example := app{
 		infoLogger:  newLogger("INFO: "),
 		errorLogger: newLogger("ERROR: "),
@@ -57,17 +59,15 @@ func main() {
 	// Мы оборачиваем простую функцию `greet` в http.HandlerFunc, чтобы сделать ее обработчиком
 	gr := http.HandlerFunc(greet)
 
-	// http.Handle("POST /httpHandleFunc", gr)
-	chi.Handle("/httpHandleFunc", gr)
-
-	// // HandleFunc это функция которая регистрирует handler для заданного шаблона маршрута
+	// // HandleFunc это ФУНКЦИЯ которая регистрирует handler для заданного шаблона маршрута
 	// http.HandleFunc("/", greet)// образец HandleFunc в случае использования DefaultServeMux
 	// mux.HandleFunc("POST /HandleFunc", greet)
 	chi.HandleFunc("/HandleFunc", greet)
 
-	// // ❗ В таком виде работает! Что это дает пока не понял..
-	// mux.Handle("POST /Handle", &example)
-	chi.Handle("/Handle", &example)
+	// http.Handle("POST /httpHandleFunc", gr)
+	// mux.Handle("POST /Handle", &example) // ❗ В таком виде работает! Что это дает пока не понял..
+	chi.Handle("/httpHandleFunc", gr)
+	chi.Handle("/Handle", &example) // ❗ В таком виде работает! Что это дает пока не понял..
 
 	example.infoLogger.Println("The server is starting")
 
