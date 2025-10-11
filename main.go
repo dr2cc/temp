@@ -39,16 +39,26 @@ func newLogger(prefix string) *log.Logger {
 }
 
 func main() {
+	// // 1. Раздел экземпляра роутера
 
 	// DefaultServeMux не требует создания экземпляра роутера, только объявление его как nil (http.ListenAndServe("localhost:8080", nil))
 	// mux := http.NewServeMux()
 	chi := chi.NewRouter()
+
+	// // 2. Раздел экземпляра "приложения" (структуры в которой определим все сущности проекта)
+	// // - логгер (уже есть!). Виды экземпляров логгера вынесу в оттдельную структуру, а потом уже ее сюда
+	// // - видимо и роутер сюда (http)
+	// // - db
+	// // - рандомайзер
+	// // -
 
 	// main app
 	example := app{
 		infoLogger:  newLogger("INFO: "),
 		errorLogger: newLogger("ERROR: "),
 	}
+
+	// // 3. Раздел "ручек" и вариантов их создания
 
 	// http.HandlerFunc— это ТИП,
 	// удобный адаптер, который позволяет простой функции выполнять "контракт"
@@ -68,6 +78,8 @@ func main() {
 	// mux.Handle("POST /Handle", &example) // ❗ В таком виде работает! Что это дает пока не понял..
 	chi.Handle("/httpHandleFunc", gr)
 	chi.Handle("/Handle", &example) // ❗ В таком виде работает! Что это дает пока не понял..
+
+	// // 4. Раздел сервера
 
 	example.infoLogger.Println("The server is starting")
 
