@@ -1,97 +1,84 @@
 package main
 
-// helloweb - Snippet for sample hello world webapp (Go)
-// wr		- Snippet for http Response (Go)
-
 import (
 	"fmt"
 	"log"
-	"net/http"
-	"os"
 	"time"
 
-	"github.com/go-chi/chi"
+	"github.com/golang-jwt/jwt/v4"
 )
 
-// Тип реализующий два экземпляра логгера,
-// а с методом ServeHTTP он (тип) еще и считается http.Handler
-type app struct {
-	infoLogger  *log.Logger
-	errorLogger *log.Logger
+// Claims — структура утверждений, которая включает стандартные утверждения
+// и одно пользовательское — UserID
+type Claims struct {
+	jwt.RegisteredClaims
+	UserID int
 }
 
-func (a *app) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	a.infoLogger.Println("I use Handler!")
-	fmt.Fprintln(w, "I use Handler!")
-}
-
-// Это и есть "простая" функция (the plain function) в качестве обработчика
-func greet(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello World! %s", time.Now())
-}
-
-func newLogger(prefix string) *log.Logger {
-	// скопировал у Тузова, не понимаю, что где значит
-	// Вроде как os.Stdout это выходной поток (даже толком не знаю, что это)
-	//return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
-
-	return log.New(os.Stdout, prefix, log.Ldate|log.Ltime)
-}
+const TOKEN_EXP = time.Hour * 3
+const SECRET_KEY = "supersecretkey"
 
 func main() {
-	// // 1. Раздел экземпляра роутера
-
-	// DefaultServeMux не требует создания экземпляра роутера, только объявление его как nil (http.ListenAndServe("localhost:8080", nil))
-	// mux := http.NewServeMux()
-	chi := chi.NewRouter()
-
-	// // 2. Раздел экземпляра "приложения" (структуры в которой определим все сущности проекта)
-	// // - логгер (уже есть!). Виды экземпляров логгера вынесу в оттдельную структуру, а потом уже ее сюда
-	// // - видимо и роутер сюда (http)
-	// // - db
-	// // - рандомайзер
-	// // -
-
-	// main app
-	example := app{
-		infoLogger:  newLogger("INFO: "),
-		errorLogger: newLogger("ERROR: "),
+	tokenString, err := BuildJWTString()
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	// // 3. Раздел "ручек" и вариантов их создания
+	fmt.Println(tokenString)
+	fmt.Println(GetUserID(tokenString))
+}
 
-	// http.HandlerFunc— это ТИП,
-	// удобный адаптер, который позволяет простой функции выполнять "контракт"
-	// http.Handler на обработку HTTP-запросов (чтобы это не значило),
-	// упрощая использование простых функций в качестве обработчиков.
-	//
-	// We wrap the plain function `greet` in http.HandlerFunc to make it a Handler
-	// Мы оборачиваем простую функцию `greet` в http.HandlerFunc, чтобы сделать ее обработчиком
-	gr := http.HandlerFunc(greet)
+// BuildJWTString создаёт токен и возвращает его в виде строки.
+func BuildJWTString() (string, error) {
+	// создаём новый токен с алгоритмом подписи HS256 и утверждениями — Claims
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			// когда создан токен
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TOKEN_EXP)),
+		},
+		// собственное утверждение
+		UserID: 19,
+	})
 
-	// // HandleFunc это ФУНКЦИЯ которая регистрирует handler для заданного шаблона маршрута
-	// http.HandleFunc("/", greet)// образец HandleFunc в случае использования DefaultServeMux
-	// mux.HandleFunc("POST /HandleFunc", greet)
-	chi.HandleFunc("/HandleFunc", greet)
-
-	// http.Handle("POST /httpHandleFunc", gr)
-	// mux.Handle("POST /Handle", &example) // ❗ В таком виде работает! Что это дает пока не понял..
-	chi.Handle("/httpHandleFunc", gr)
-	chi.Handle("/Handle", &example) // ❗ В таком виде работает! Что это дает пока не понял..
-
-	// // 4. Раздел сервера
-
-	example.infoLogger.Println("The server is starting")
-
-	// // The handler is typically nil, in which case [DefaultServeMux] is used.
-	// // Обработчик (второй параметр) по умолчанию равен nil, в этом случае используется [DefaultServeMux].
-	// // Его использование не рекомендуется (можно только в простых, тестовых приложениях).
-	//
-	// // В рабочих приложениях следует использовать http.NewServeMux или сторонние роутеры
-	// http.ListenAndServe("localhost:8080", nil)
-
-	// Запуск сервера с обработкой ошибки
-	if err := http.ListenAndServe("localhost:8080", chi); err != nil {
-		example.errorLogger.Fatal(err)
+	// создаём строку токена
+	tokenString, err := token.SignedString([]byte(SECRET_KEY))
+	if err != nil {
+		return "", err
 	}
+
+	// возвращаем строку токена
+	return tokenString, nil
+}
+
+func GetUserID(tokenString string) int {
+	// создаём экземпляр структуры с утверждениями
+	claims := &Claims{}
+	// разбираем строку токена tokenString в структуру claims
+	// ❗Почему функции jwt.ParseWithClaims
+	// можно приравнивать переменные, а можно и не приравнивать- ошибки нет?
+	// Сама она ничего не возвращает!
+	// Возвращает функция обратного вызова передаваемая третьим аргументом
+	// (callback- вызов функции переданной в качестве аргумента).
+	token, err := jwt.ParseWithClaims(tokenString, claims,
+		// callback
+		func(t *jwt.Token) (interface{}, error) {
+			// Защита от уязвимости- проверка заголовка алгоритма талона (токена)
+			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+			}
+			return []byte(SECRET_KEY), nil
+		},
+	)
+	if err != nil {
+		return -1
+	}
+
+	if !token.Valid {
+		fmt.Println("Token is not valid")
+		return -1
+	}
+
+	fmt.Println("Token is valid")
+	// возвращаем ID пользователя в читаемом виде
+	return claims.UserID
 }
