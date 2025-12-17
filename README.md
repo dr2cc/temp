@@ -1,0 +1,2 @@
+# Пример к уроку Практикума - Авторизация: JSON Web Token
+[Спринт 6/15 → Тема 1/2: Пакеты hash, crypto. Безопасность информации → Урок 3/5: Авторизация: JSON Web Token]( https://practicum.yandex.ru/learn/go-advanced/courses/cd74b805-c00b-4c06-b8b4-ff287d57aa73/sprints/534362/topics/ae9a8737-46c3-41e1-8f6b-ea6c1a1088fe/lessons/9972ae9a-909d-4a5b-8a02-d55f062427c2/#49e836a4-7195-4b6f-9388-7b4494ac7529 )
